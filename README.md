@@ -1,23 +1,22 @@
-Nucleus v2
+NucleusRevived
 ====
 
-For version 1, see the sponge-api/7 branch.
+[Nucleus v2](https://github.com/NucleusPowered/Nucleus/tree/v2/S7)'s maintained fork. Works with SpongeAPI v7 (mc 1.12.2).
 
 * [Source]
+* [Original Source]
 * [Issues]
 * [Website]
 * [Downloads]
 * [Documentation]
-* [Discord]
+* [Original Discord]
 
-Licence: [MIT](LICENSE.md) (except for the Nucleus logo, which is all rights reserved)
+Licence: [MIT](LICENSE.md)
 
 Nucleus is a Sponge plugin that forms a solid base for your server, providing essential commands, events, and other
 tidbits that you might need. Extremely configurable, only loading up the commands and modules you want (and providing a way for
 plugins to disable modules that they replace the functionality of), and providing a simple and rich API, Nucleus is an
 elite plugin for providing simple server tasks, and an essential addition to your server!
-
-Nucleus is being actively developed for Sponge API 7. 
 
 ## Contributions
 
@@ -67,10 +66,11 @@ The compiled Nucleus plugin includes the following libraries (with their licence
 
 See [THIRDPARTY.md](THIRDPARTY.md) for more details.
 
-[Source]: https://github.com/NucleusPowered/Nucleus
-[Issues]: https://github.com/NucleusPowered/Nucleus/issues
-[Downloads]: https://github.com/NucleusPowered/Nucleus/releases
+[Source]: https://github.com/dtkdtk/Nucleus-Revived
+[Original Source]: https://github.com/NucleusPowered/Nucleus
+[Issues]: https://github.com/dtkdtk/Nucleus-Revived/issues
+[Downloads]: https://github.com/dtkdtk/Nucleus-Revived/releases
 [Website]: http://v2-beta.nucleuspowered.org/
 [Documentation]: http://v2-beta.nucleuspowered.org/docs
 [guidelines]: Contributing.md
-[Discord]: https://discord.gg/A9QHG5H
+[Original Discord]: https://discord.gg/A9QHG5H
