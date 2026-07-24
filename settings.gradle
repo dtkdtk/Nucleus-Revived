@@ -1,4 +1,4 @@
-rootProject.name = 'Nucleus'
+rootProject.name = 'NucleusRevived'
 include 'nucleus-api'
 include 'nucleus-core'
 include 'nucleus-ap'

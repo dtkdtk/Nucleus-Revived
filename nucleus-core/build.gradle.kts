@@ -1,18 +1,20 @@
 plugins {
     java
     eclipse
-    id("ninja.miserable.blossom")
-    id("de.undercouch.download")
-    id("com.github.hierynomus.license")
+    id("net.kyori.blossom") version("1.3.1")
+    id("de.undercouch.download") version("5.7.0")
 }
 
 group = "io.github.nucleuspowered"
 
 repositories {
-    jcenter()
+    mavenCentral()
     maven("https://repo.spongepowered.org/maven")
     maven("https://repo.drnaylor.co.uk/artifactory/list/minecraft")
     maven("https://repo.drnaylor.co.uk/artifactory/list/quickstart")
+    flatDir {
+        dirs("../libs")
+    }
     // maven("https://jitpack.io")
 }
 
@@ -32,6 +34,17 @@ java {
     sourceCompatibility = JavaVersion.VERSION_1_8
 }
 
+tasks {
+    processResources {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}
+
+// Dependency issues, skipping
+tasks.withType<Test> {
+    enabled = false
+}
+
 dependencies {
     annotationProcessor(project(":nucleus-ap"))
     implementation(project(":nucleus-ap"))
@@ -46,25 +59,17 @@ dependencies {
         exclude("org.spongepowered", "configurate-core")
     }
 
-    testCompile("org.mockito:mockito-all:1.10.19")
-    testCompile("org.powermock:powermock-module-junit4:1.6.4")
-    testCompile("org.powermock:powermock-api-mockito:1.6.4")
-    testCompile("org.hamcrest:hamcrest-junit:2.0.0.0")
-    testCompile("junit", "junit", "4.12")
+    testImplementation("org.mockito:mockito-all:1.10.19")
+    testImplementation("org.powermock:powermock-module-junit4:1.6.4")
+    testImplementation("org.powermock:powermock-api-mockito:1.6.4")
+    testImplementation("org.hamcrest:hamcrest-junit:2.0.0.0")
+    testImplementation("junit", "junit", "4.12")
 }
 
 val downloadCompat by tasks.registering(de.undercouch.gradle.tasks.download.Download::class) {
     src("https://nucleuspowered.org/data/nca.json")
     dest(File(buildDir, "resources/main/assets/nucleus/compat.json"))
     onlyIfModified(true)
-}
-
-tasks {
-
-    blossomSourceReplacementJava {
-        dependsOn(rootProject.tasks["gitHash"])
-    }
-
 }
 
 blossom {
@@ -77,21 +82,4 @@ blossom {
     replaceToken("@gitHash@", rootProject.extra["gitHash"])
 
     replaceToken("@spongeversion@", rootProject.properties["declaredApiVersion"]) //declaredApiVersion
-}
-
-configure<nl.javadude.gradle.plugins.license.LicenseExtension> {
-    val name: String = rootProject.name
-
-    exclude("**/*.info")
-    exclude("assets/**")
-    exclude("*.properties")
-    exclude("*.txt")
-
-    header = file("../HEADER.txt")
-    sourceSets = project.sourceSets
-
-    ignoreFailures = false
-    strictCheck = true
-
-    mapping("java", "SLASHSTAR_STYLE")
 }

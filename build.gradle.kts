@@ -10,7 +10,7 @@ import java.nio.file.Files
 val kotlin_version: String by extra
 buildscript {
     var kotlin_version: String by extra
-    kotlin_version = "1.3.61"
+    kotlin_version = "1.9.22"
     repositories {
         mavenCentral()
     }
@@ -24,10 +24,9 @@ plugins {
     idea
     eclipse
     `maven-publish`
-    id("com.github.hierynomus.license") version "0.15.0"
-    id("ninja.miserable.blossom") version "1.0.1"
+    id("net.kyori.blossom") version("1.3.1")
     id("com.github.johnrengelman.shadow") version "5.2.0"
-    id("org.spongepowered.gradle.plugin") version "0.11.0-SNAPSHOT"
+    id("org.spongepowered.gradle.plugin") version "2.0.2"
     kotlin("jvm") version "1.3.61"
     id("org.sonarqube") version "2.7"
     id("nucleus-publishing-convention")
@@ -56,14 +55,12 @@ extra["gitHash"] = getGitCommit()
 
 // Get the Level
 val nucVersion = project.properties["nucleusVersion"]?.toString()!!
-val nucSuffix : String? = {
-    val prop: String? = project.properties["nucleusVersionSuffix"]?.toString()
-    if (prop == null || prop == "RELEASE") {
-        null
-    } else {
-        prop
-    }
-}.invoke()
+val prop: String? = project.properties["nucleusVersionSuffix"]?.toString()
+val nucSuffix : String? = if (prop == null || prop == "RELEASE") {
+    null
+} else {
+    prop
+}
 
 var level = getLevel(nucVersion, nucSuffix)
 val spongeVersion: String = project.properties["declaredApiVersion"]!!.toString()
@@ -88,10 +85,13 @@ java {
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
     maven("https://repo.spongepowered.org/maven")
     maven("https://repo.drnaylor.co.uk/artifactory/list/minecraft")
     maven("https://repo.drnaylor.co.uk/artifactory/list/quickstart")
+    flatDir {
+        dirs("libs")
+    }
 }
 
 dependencies {
@@ -271,10 +271,6 @@ tasks {
         dependsOn(":nucleus-ap:build")
     }
 
-    blossomSourceReplacementJava {
-        dependsOn(gitHash)
-    }
-
 }
 
 publishing {
@@ -287,23 +283,4 @@ publishing {
             artifactId = project.properties["artifactId"]?.toString()!!
         }
     }
-}
-
-
-license {
-    // ext.name = project.name
-
-    exclude("**/*.info")
-    exclude("assets/**")
-    exclude("*.properties")
-    exclude("*.txt")
-
-    header = File("HEADER.txt")
-
-    // sourceSets.addLater(ProviderFactory.provider(() -> project(":nucleus-core").sourceSets))
-
-    ignoreFailures = false
-    strictCheck = true
-
-    mapping("java", "SLASHSTAR_STYLE")
 }

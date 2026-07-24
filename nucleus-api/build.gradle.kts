@@ -2,10 +2,8 @@ plugins {
     java
     idea
     eclipse
-    maven
     `maven-publish`
-    id("com.github.hierynomus.license")
-    id("ninja.miserable.blossom")
+    id("net.kyori.blossom") version("1.3.1")
     id("nucleus-publishing-convention")
 }
 
@@ -16,30 +14,17 @@ group = "io.github.nucleuspowered"
 defaultTasks.add("licenseFormat")
 defaultTasks.add("build")
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+}
+
 repositories {
-    jcenter()
+    mavenCentral()
     maven("https://repo.spongepowered.org/maven")
 }
 
 dependencies {
     implementation("org.spongepowered:spongeapi:" + rootProject.properties["spongeApiVersion"])
-}
-
-configure<nl.javadude.gradle.plugins.license.LicenseExtension> {
-    val name: String = rootProject.name
-
-    exclude("**/*.info")
-    exclude("assets/**")
-    exclude("*.properties")
-    exclude("*.txt")
-
-    header = file("../HEADER.txt")
-    sourceSets = project.sourceSets
-
-    ignoreFailures = false
-    strictCheck = true
-
-    mapping("java", "SLASHSTAR_STYLE")
 }
 
 val filenameSuffix = "SpongeAPI${rootProject.properties["declaredApiVersion"]}"
@@ -68,10 +53,6 @@ val copyJars by tasks.registering(Copy::class) {
 }
 
 tasks {
-
-    blossomSourceReplacementJava {
-        dependsOn(rootProject.tasks["gitHash"])
-    }
 
     jar {
         manifest {

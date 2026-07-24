@@ -4,6 +4,8 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import java.net.HttpURLConnection
 import java.net.URL
@@ -16,16 +18,22 @@ import java.security.MessageDigest
 
 open class SetupServer : DefaultTask() {
 
-    var directory: Path = Paths.get("run")
+    @get:Input
+    var directory: String = "run"
+
+    @get:Input
     var spongeVanillaFileName: String = "sv.jar"
-    var spongeVanillaDownload: URL? = null // = URL("https://repo.spongepowered.org/maven/org/spongepowered/spongevanilla/1.12.2-7.2
-    // .2/spongevanilla-1.12.2-7.2.2.jar")
-    var spongeVanillaSHA1Hash: String? = null // = "eebec22f58e27fef974e3bc108c70af1b3a47f8e"
+
+    @get:Input
+    var spongeVanillaDownload: URL? = null
+
+    @get:Input
+    var spongeVanillaSHA1Hash: String? = null
+
+    @get:Internal
     var fileProvider: Provider<RegularFile>? = null
 
-    /**
-     * This indicates you accept the Minecraft EULA.
-     */
+    @get:Input
     var acceptEula: Boolean = false
 
     @TaskAction
@@ -39,27 +47,23 @@ open class SetupServer : DefaultTask() {
         if (fileProvider?.isPresent != true) {
             throw GradleException("The plugin was not specified!")
         }
-        // we know it exists
+
         val file: RegularFile = fileProvider!!.get()
-        val pathForServer = this.directory
+        val pathForServer = Paths.get(directory)
         val svdl = this.spongeVanillaDownload!!
 
-        // Create path.
         if (Files.exists(pathForServer) && !Files.isDirectory(pathForServer)) {
-            // this is a file, stop.
             throw GradleException("The specified path is not a directory!")
         }
 
         Files.createDirectories(pathForServer)
         val svFile = pathForServer.resolve(spongeVanillaFileName)
         if (Files.notExists(svFile)) {
-            // Download SV.
             logger.quiet("Downloading SpongeVanilla")
             val con: HttpURLConnection = svdl.openConnection() as HttpURLConnection
             try {
                 con.requestMethod = "GET"
                 con.doInput = true
-                // con.doOutput = true
                 con.setRequestProperty("User-Agent", "Nucleus/Gradle")
 
                 val status = con.responseCode
@@ -87,7 +91,6 @@ open class SetupServer : DefaultTask() {
             logger.quiet("Creating Server")
         }
 
-        // Copy Nucleus to mods directory
         val modsDir = pathForServer.resolve("mods")
         val nucleusFile = modsDir.resolve("nucleus.jar")
         Files.createDirectories(modsDir)
@@ -95,7 +98,6 @@ open class SetupServer : DefaultTask() {
         Files.createDirectories(pathForServer.resolve("docs"))
         Files.copy(file.asFile.toPath(), nucleusFile)
 
-        // Set EULA
         val eulaFile = pathForServer.resolve("eula.txt")
         if (Files.notExists(eulaFile)) {
             Files.newBufferedWriter(eulaFile, StandardOpenOption.CREATE_NEW).use {
@@ -112,12 +114,10 @@ open class SetupServer : DefaultTask() {
     }
 
     private fun checkHashOfFile(svFile: Path): String {
-        // Check SHA1 of file
         val digest: MessageDigest = MessageDigest.getInstance("SHA-1")
         DigestInputStream(Files.newInputStream(svFile), digest).use {
             while (it.read() != -1) { /* ignored */ }
             return it.messageDigest.digest().joinToString("") { i -> byteToHex(i.toInt()) }
         }
     }
-
 }
