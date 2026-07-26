@@ -19,8 +19,8 @@ import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.args.CommandElement;
 import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.text.channel.MessageChannel;
+import org.spongepowered.api.text.Text;
+import org.spongepowered.api.text.channel.MutableMessageChannel;
 import org.spongepowered.api.text.serializer.TextSerializers;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
 
@@ -51,7 +51,7 @@ public class KickCommand implements ICommandExecutor<CommandSource>, IReloadable
     @Override public ICommandResult execute(ICommandContext<? extends CommandSource> context) throws CommandException {
         Player pl = context.requireOne(NucleusParameters.Keys.PLAYER, Player.class);
         String r = context.getOne(NucleusParameters.Keys.REASON, String.class)
-                .orElseGet(() -> context.getMessageString("command.kick.defaultreason"));
+                .orElseGet(() -> context.getMessageString("kick.defaultreason"));
 
         if (!context.isConsoleAndBypass() && context.testPermissionFor(pl, KickPermissions.KICK_EXEMPT_TARGET)) {
             return context.errorResult("command.kick.exempt", pl.getName());
@@ -66,11 +66,17 @@ public class KickCommand implements ICommandExecutor<CommandSource>, IReloadable
             return context.errorResult("command.modifiers.level.insufficient", pl.getName());
         }
 
-        pl.kick(TextSerializers.FORMATTING_CODE.deserialize(r));
+        Text banScreen = TextSerializers.FORMATTING_CODE.deserialize(
+                context.getMessageString("kick.banscreen", r, context.getName())
+        );
+        pl.kick(banScreen);
 
-        MessageChannel messageChannel = context.getServiceCollection().permissionService().permissionMessageChannel(KickPermissions.KICK_NOTIFY);
-        messageChannel.send(context.getCommandSource(), context.getMessage("command.kick.message", pl.getName(), context.getName()));
-        messageChannel.send(context.getCommandSource(), context.getMessage("command.reason", r));
+        MutableMessageChannel channel =
+                context.getServiceCollection().permissionService().permissionMessageChannel(KickPermissions.KICK_NOTIFY).asMutable();
+        channel.addMember(context.getCommandSource());
+        channel.send(context.getMessage("command.kick.message", pl.getName(), context.getName()));
+        channel.send(context.getMessage("command.reason.moderation", r));
+
         return context.successResult();
     }
 

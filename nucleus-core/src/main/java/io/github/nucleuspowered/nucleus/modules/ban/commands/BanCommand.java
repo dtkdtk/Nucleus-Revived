@@ -66,51 +66,58 @@ public class BanCommand implements ICommandExecutor<CommandSource>, IReloadableS
         };
     }
 
-    @Override public ICommandResult execute(ICommandContext<? extends CommandSource> context) throws CommandException {
-        final String r = context.getOne(NucleusParameters.Keys.REASON, String.class).orElseGet(() ->
-                context.getMessageString("ban.defaultreason"));
+    @Override
+    public ICommandResult execute(ICommandContext<? extends CommandSource> context) throws CommandException {
+        String reason = context.getOne(NucleusParameters.Keys.REASON, String.class)
+                .orElseGet(() -> context.getMessageString("ban.defaultreason"));
 
-        Optional<GameProfile> ou = context.getOne(NucleusParameters.Keys.USER_UUID, GameProfile.class);
-        if (!ou.isPresent()) {
-            ou = context.getOne(NucleusParameters.Keys.USER, GameProfile.class);
+        User user = null;
+
+        Optional<GameProfile> gpOpt = context.getOne(NucleusParameters.Keys.USER, GameProfile.class);
+        if (!gpOpt.isPresent()) {
+            gpOpt = context.getOne(NucleusParameters.Keys.USER_UUID, GameProfile.class);
         }
 
-        if (ou.isPresent()) {
-            // power check
-            Optional<User> optionalUser = Sponge.getServiceManager().provideUnchecked(UserStorageService.class).get(ou.get());
-            if ((!optionalUser.isPresent() || !optionalUser.get().isOnline()) && !context.testPermission(BanPermissions.BAN_OFFLINE)) {
-                return context.errorResult("command.ban.offline.noperms");
+        if (gpOpt.isPresent()) {
+            UserStorageService uss = Sponge.getServiceManager().provideUnchecked(UserStorageService.class);
+            Optional<User> u = uss.get(gpOpt.get().getUniqueId());
+            if (u.isPresent()) {
+                user = u.get();
             }
-
-            if (optionalUser.isPresent() &&
-                    (!context.isConsoleAndBypass() && context.testPermissionFor(optionalUser.get(), BanPermissions.BAN_EXEMPT_TARGET))) {
-                return context.errorResult("command.ban.exempt", optionalUser.get().getName());
-            }
-
-            return executeBan(context, ou.get(), r);
         }
 
-        if (!context.testPermission(BanPermissions.BAN_OFFLINE)) {
+        if (user == null) {
+            String name = context.getOne(this.name, String.class).orElse(null);
+            if (name != null && context.testPermission(BanPermissions.BAN_OFFLINE)) {
+                return tryMojangBan(context, name, reason);
+            }
+            return context.errorResult("command.ban.usernotfound");
+        }
+
+        if (!user.isOnline() && !context.testPermission(BanPermissions.BAN_OFFLINE)) {
             return context.errorResult("command.ban.offline.noperms");
         }
 
-        final String userToFind = context.requireOne(this.name, String.class);
+        if (!context.isConsoleAndBypass() && context.testPermissionFor(user, BanPermissions.BAN_EXEMPT_TARGET)) {
+            return context.errorResult("command.ban.exempt", user.getName());
+        }
 
-        // Get the profile async.
+        return executeBan(context, user, reason);
+    }
+
+    private ICommandResult tryMojangBan(ICommandContext<? extends CommandSource> context, String userToFind, String reason) {
         Sponge.getScheduler().createAsyncExecutor(context.getServiceCollection().pluginContainer()).execute(() -> {
-            GameProfileManager gpm = Sponge.getServer().getGameProfileManager();
             try {
+                GameProfileManager gpm = Sponge.getServer().getGameProfileManager();
                 GameProfile gp = gpm.get(userToFind).get();
 
-                // Ban the user sync.
                 Sponge.getScheduler().createSyncExecutor(context.getServiceCollection().pluginContainer()).execute(() -> {
-                    // Create the user.
                     UserStorageService uss = Sponge.getServiceManager().provideUnchecked(UserStorageService.class);
                     User user = uss.getOrCreate(gp);
                     context.sendMessage("gameprofile.new", user.getName());
 
                     try {
-                        executeBan(context, gp, r);
+                        executeBan(context, user, reason);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -124,50 +131,34 @@ public class BanCommand implements ICommandExecutor<CommandSource>, IReloadableS
         return context.successResult();
     }
 
-    private ICommandResult executeBan(ICommandContext<? extends CommandSource> context, GameProfile u, String r) {
+    private ICommandResult executeBan(ICommandContext<? extends CommandSource> context, User user, String reason) {
         BanService service = Sponge.getServiceManager().provideUnchecked(BanService.class);
         CommandSource src = context.getCommandSourceUnchecked();
 
-        UserStorageService uss = Sponge.getServiceManager().provideUnchecked(UserStorageService.class);
-        User user = uss.get(u).get();
-        if (!user.isOnline() && !context.testPermission(BanPermissions.BAN_OFFLINE)) {
-            return context.errorResult("command.ban.offline.noperms");
+        if (service.isBanned(user.getProfile())) {
+            return context.errorResult("command.ban.alreadyset", user.getName());
         }
 
-        if (service.isBanned(u)) {
-            return context.errorResult("command.ban.alreadyset",
-                    u.getName().orElse(context.getServiceCollection().messageProvider()
-                            .getMessageString(src,"standard.unknown")));
-        }
+        Text banScreen = TextSerializers.FORMATTING_CODE.deserialize(
+                context.getMessageString("ban.banscreen.permanent", reason, context.getName())
+        );
+        user.getPlayer().ifPresent(p -> p.kick(banScreen));
 
-        if (this.levelConfig.isUseLevels() &&
-                !context.isPermissionLevelOkay(user,
-                        BanPermissions.BAN_LEVEL_KEY,
-                        BanPermissions.BASE_BAN,
-                        this.levelConfig.isCanAffectSameLevel())) {
-            // Failure.
-            return context.errorResult("command.modifiers.level.insufficient",
-                    u.getName().orElse(context.getServiceCollection().messageProvider()
-                            .getMessageString(src,"standard.unknown")));
-        }
-
-        // Create the ban.
-        Ban bp = Ban.builder().type(BanTypes.PROFILE).profile(u)
+        Ban bp = Ban.builder()
+                .type(BanTypes.PROFILE)
+                .profile(user.getProfile())
                 .source(src)
-                .reason(TextSerializers.FORMATTING_CODE.deserialize(r)).build();
+                .reason(Text.of(reason))
+                .build();
         service.addBan(bp);
 
-        // Get the permission, "quickstart.ban.notify"
-        MutableMessageChannel send = context.getServiceCollection().permissionService().permissionMessageChannel(BanPermissions.BAN_NOTIFY).asMutable();
-        send.addMember(src);
-        send.send(context.getMessage("command.ban.applied",
-                u.getName().orElseGet(() -> context.getMessageString("standard.unknown")),
-                src.getName()));
-        send.send(context.getMessage("standard.reasoncoloured", r));
-
-        if (Sponge.getServer().getPlayer(u.getUniqueId()).isPresent()) {
-            Sponge.getServer().getPlayer(u.getUniqueId()).get().kick(TextSerializers.FORMATTING_CODE.deserialize(r));
-        }
+        MutableMessageChannel channel = context.getServiceCollection()
+                .permissionService()
+                .permissionMessageChannel(BanPermissions.BAN_NOTIFY)
+                .asMutable();
+        channel.addMember(src);
+        channel.send(context.getMessage("command.ban.applied", user.getName(), src.getName()));
+        channel.send(context.getMessage("command.reason.moderation", reason));
 
         return context.successResult();
     }

@@ -45,7 +45,7 @@ public class KickAllCommand implements ICommandExecutor<CommandSource> {
     @Override
     public ICommandResult execute(ICommandContext<? extends CommandSource> context) throws CommandException {
         String r = context.getOne(NucleusParameters.Keys.REASON, String.class)
-                .orElseGet(() -> context.getMessageString("command.kick.defaultreason"));
+                .orElseGet(() -> context.getMessageString("kick.defaultreason"));
         boolean f = context.getOne("w", Boolean.class).orElse(false);
 
         if (f) {
@@ -56,14 +56,16 @@ public class KickAllCommand implements ICommandExecutor<CommandSource> {
         Sponge.getServer().getOnlinePlayers().stream()
                 .filter(context::is)
                 .collect(Collectors.toList())
-                .forEach(x -> x.kick(TextSerializers.FORMATTING_CODE.deserialize(r)));
+                .forEach(x -> x.kick(TextSerializers.FORMATTING_CODE.deserialize(
+                        context.getMessageString("kick.playerscreen", r, context.getName())
+                )));
 
         // MessageChannel mc = MessageChannel.fixed(Sponge.getServer().getConsole(), src);
         ConsoleSource console = Sponge.getServer().getConsole();
         context.sendMessage("command.kickall.message");
         context.sendMessageTo(console, "command.kickall.message");
-        context.sendMessage("command.reason", r);
-        context.sendMessageTo(console, "command.reason", r);
+        context.sendMessage("command.reason.moderation", r);
+        context.sendMessageTo(console, "command.reason.moderation", r);
         if (f) {
             context.sendMessage("command.kickall.whitelist");
             context.sendMessageTo(console, "command.kickall.whitelist");

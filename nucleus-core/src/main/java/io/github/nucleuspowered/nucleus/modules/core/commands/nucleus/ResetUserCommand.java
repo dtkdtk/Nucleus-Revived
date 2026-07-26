@@ -30,7 +30,6 @@ import org.spongepowered.api.service.user.UserStorageService;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.action.TextActions;
 import org.spongepowered.api.text.format.TextStyles;
-import org.spongepowered.api.util.Tuple;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
 import org.spongepowered.api.util.ban.Ban;
 import org.spongepowered.api.util.ban.BanTypes;
@@ -38,12 +37,7 @@ import org.spongepowered.api.util.ban.BanTypes;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -168,7 +162,7 @@ public class ResetUserCommand implements ICommandExecutor<CommandSource> {
             final User user = Sponge.getServiceManager().provideUnchecked(UserStorageService.class).get(this.user).get();
             if (user.isOnline()) {
                 Player player = user.getPlayer().get();
-                Text kickReason = messageProvider.getMessageFor(player, "command.kick.defaultreason");
+                Text kickReason = messageProvider.getMessageFor(player, "kick.defaultreason");
                 player.kick(kickReason);
 
                 // Let Sponge do what it needs to close the user off.

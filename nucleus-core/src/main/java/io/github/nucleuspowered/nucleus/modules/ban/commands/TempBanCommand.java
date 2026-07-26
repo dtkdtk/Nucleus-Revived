@@ -20,7 +20,7 @@ import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.args.CommandElement;
 import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.service.ban.BanService;
-import org.spongepowered.api.text.channel.MessageReceiver;
+import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.channel.MutableMessageChannel;
 import org.spongepowered.api.text.serializer.TextSerializers;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
@@ -99,30 +99,30 @@ public class TempBanCommand implements ICommandExecutor<CommandSource>, IReloada
         // Expiration date
         Instant date = Instant.now().plus(time, ChronoUnit.SECONDS);
 
+        // Show the ban screen ("You have been banned!")
+        Text banScreen = TextSerializers.FORMATTING_CODE.deserialize(
+                context.getMessageString("ban.banscreen.temporary",
+                        reason, context.getTimeString(time), context.getName())
+        );
+        if (Sponge.getServer().getPlayer(u.getUniqueId()).isPresent()) {
+            Sponge.getServer().getPlayer(u.getUniqueId()).get().kick(banScreen);
+        }
+
         // Create the ban.
         CommandSource src = context.getCommandSource();
-        Ban bp = Ban.builder().type(BanTypes.PROFILE).profile(u.getProfile()).source(src).expirationDate(date).reason(TextSerializers.FORMATTING_CODE.deserialize(reason)).build();
+        Ban bp = Ban.builder().type(BanTypes.PROFILE).profile(u.getProfile())
+                .source(src)
+                .expirationDate(date)
+                .reason(Text.of(reason))
+                .build();
         service.addBan(bp);
 
-        MutableMessageChannel send =
+        MutableMessageChannel channel =
                 context.getServiceCollection().permissionService().permissionMessageChannel(BanPermissions.BAN_NOTIFY).asMutable();
-        send.addMember(src);
-        for (MessageReceiver messageReceiver : send.getMembers()) {
-            if (messageReceiver instanceof CommandSource) {
-                context.sendMessageTo(messageReceiver,
-                        "command.tempban.applied",
-                        u.getName(),
-                        context.getTimeString(time),
-                        src.getName());
-                context.sendMessageTo(messageReceiver,
-                        "standard.reasoncoloured",
-                        reason);
-            }
-        }
-
-        if (Sponge.getServer().getPlayer(u.getUniqueId()).isPresent()) {
-            Sponge.getServer().getPlayer(u.getUniqueId()).get().kick(TextSerializers.FORMATTING_CODE.deserialize(reason));
-        }
+        channel.addMember(src);
+        channel.send(context.getMessage("command.tempban.applied", u.getName(),
+                context.getTimeString(time), src.getName()));
+        channel.send(context.getMessage("command.reason.moderation", reason));
 
         return context.successResult();
     }

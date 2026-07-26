@@ -23,6 +23,7 @@ import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.args.CommandElement;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.entity.living.player.User;
+import org.spongepowered.api.service.permission.Subject;
 import org.spongepowered.api.text.channel.MessageChannel;
 import org.spongepowered.api.text.channel.MutableMessageChannel;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
@@ -71,7 +72,7 @@ public class MuteCommand implements ICommandExecutor<CommandSource>, IReloadable
 
         Optional<Long> time = context.getOne(NucleusParameters.Keys.DURATION, Long.class);
         Optional<MuteData> omd = handler.getPlayerMuteData(user);
-        Optional<String> reas = context.getOne(NucleusParameters.Keys.REASON, String.class);
+        Optional<String> reason = context.getOne(NucleusParameters.Keys.REASON, String.class);
 
         if (!context.isConsoleAndBypass() && context.testPermissionFor(user, MutePermissions.MUTE_EXEMPT_TARGET)) {
             return context.errorResult("command.mute.exempt", user.getName());
@@ -86,8 +87,12 @@ public class MuteCommand implements ICommandExecutor<CommandSource>, IReloadable
             return context.errorResult("command.modifiers.level.insufficient", user.getName());
         }
 
+        if (omd.isPresent()) {
+            return context.errorResult("command.mute.alreadyset", user.getName());
+        }
+
         // Do we have a reason?
-        String rs = reas.orElseGet(() -> context.getMessageString("command.mute.defaultreason"));
+        String rs = reason.orElseGet(() -> context.getMessageString("mute.defaultreason"));
         UUID ua = Util.CONSOLE_FAKE_UUID;
         if (context.is(Player.class)) {
             ua = context.getIfPlayer().getUniqueId();
@@ -109,16 +114,18 @@ public class MuteCommand implements ICommandExecutor<CommandSource>, IReloadable
         }
 
         CommandSource src = context.getCommandSource();
+        Optional<CommandSource> userSrc = user.getPlayer().flatMap(Subject::getCommandSource);
         if (handler.mutePlayer(user, data)) {
             // Success.
-            MutableMessageChannel mc =
+            MutableMessageChannel channel =
                     context.getServiceCollection().permissionService().permissionMessageChannel(MutePermissions.MUTE_NOTIFY).asMutable();
-            mc.addMember(src);
+            channel.addMember(src);
+            userSrc.ifPresent(channel::addMember);
 
             if (time.isPresent()) {
-                timedMute(context, user, data, time.get(), mc);
+                timedMute(context, user, data, time.get(), channel);
             } else {
-                permMute(context, user, data, mc);
+                permMute(context, user, data, channel);
             }
 
             return context.successResult();
@@ -129,22 +136,20 @@ public class MuteCommand implements ICommandExecutor<CommandSource>, IReloadable
 
     private void timedMute(ICommandContext<? extends CommandSource> context, User user, MuteData data, long time, MessageChannel mc) {
         String ts = context.getTimeString(time);
-        mc.send(context.getMessage("command.mute.success.time", user.getName(), context.getName(), ts));
-        mc.send(context.getMessage("standard.reasoncoloured", data.getReason()));
+        mc.send(context.getMessage("command.mute.success.time", user.getName(), ts, context.getName()));
+        mc.send(context.getMessage("command.reason.moderation", data.getReason()));
 
         if (user.isOnline()) {
             context.sendMessageTo(user.getPlayer().get(), "mute.playernotify.time", ts);
-            context.sendMessageTo(user.getPlayer().get(), "command.reason", data.getReason());
         }
     }
 
     private void permMute(ICommandContext<? extends CommandSource> context, User user, MuteData data, MessageChannel mc) {
         mc.send(context.getMessage("command.mute.success.norm", user.getName(), context.getName()));
-        mc.send(context.getMessage("standard.reasoncoloured", data.getReason()));
+        mc.send(context.getMessage("command.reason.moderation", data.getReason()));
 
         if (user.isOnline()) {
             context.sendMessageTo(user.getPlayer().get(), "mute.playernotify.standard");
-            context.sendMessageTo(user.getPlayer().get(), "command.reason", data.getReason());
         }
     }
 
